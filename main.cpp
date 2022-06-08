@@ -85,6 +85,3 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	UnregisterClass(w.lpszClassName, w.hInstance);
 	return 0;
 }
-
-
-
