@@ -9,7 +9,7 @@
 #include <dinput.h>
 #include <DirectXTex.h>
 
-//05_03 p17
+//05_04 p1
 using namespace DirectX;
 
 #pragma comment(lib,"d3d12.lib")
@@ -268,6 +268,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	);
 	assert(SUCCEEDED(result));
 
+	float angle = 0.0f;		//カメラの回転角
+
+
 	//DirectX初期化処理 ここまで
 #pragma endregion
 
@@ -284,10 +287,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	//頂点データ
 	Vertex vertices[] = {
 		//x		y		z		u	v
-		{{-50.0f,-50.0f,50.0f},{0.0f,1.0f}},//左下	インデックス0
-		{{-50.0f, 50.0f,50.0f},{0.0f,0.0f}},//左上	インデックス1
-		{{ 50.0f,-50.0f,50.0f},{1.0f,1.0f}},//右下	インデックス2
-		{{ 50.0f, 50.0f,50.0f},{1.0f,0.0f}},//右上	インデックス3
+		{{-50.0f,-50.0f,0.0f},{0.0f,1.0f}},//左下	インデックス0
+		{{-50.0f, 50.0f,0.0f},{0.0f,0.0f}},//左上	インデックス1
+		{{ 50.0f,-50.0f,0.0f},{1.0f,1.0f}},//右下	インデックス2
+		{{ 50.0f, 50.0f,0.0f},{1.0f,0.0f}},//右上	インデックス3
 	};
 
 	//インデックスデータ
@@ -443,26 +446,37 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	//単位行列を代入
 	constMapTransform->mat = XMMatrixIdentity();
 	//2Dゲーム座標系
-	/*constMapTransform->mat.r[0].m128_f32[0] = 2.0f / window_width;
+	/*constMapTransform->mat.r[0].m128_f32[0] = 2.0f / window_widthan
 	constMapTransform->mat.r[1].m128_f32[1] = -2.0f / window_height;
 	constMapTransform->mat.r[3].m128_f32[0] = -1.0f;
 	constMapTransform->mat.r[3].m128_f32[1] = 1.0f;*/
 	//並行投影行列の計算
-	constMapTransform->mat = XMMatrixOrthographicOffCenterLH(
-		0.0f,		//左端
-		1280.0f,	//右端
-		720.0f,		//下端
-		0.0f,		//上端
-		0.0f,		//前端
-		1.0f		//奥端
-	);
+	//constMapTransform->mat = XMMatrixOrthographicOffCenterLH(
+	//	0.0f,		//左端
+	//	1280.0f,	//右端
+	//	720.0f,		//下端
+	//	0.0f,		//上端
+	//	0.0f,		//前端
+	//	1.0f		//奥端
+	//);
 
-	//透視投影行列の計算
-	constMapTransform->mat = XMMatrixPerspectiveFovLH(
-		XMConvertToRadians(45.0f),
-		(float)1280.f/ 720.0f,
-		0.1f,1000.0f
-	);
+	//射影変換(透視投影)行列の計算
+	XMMATRIX matProjection =
+		XMMatrixPerspectiveFovLH(
+			XMConvertToRadians(45.0f),
+			(float)window_width / window_height,
+			0.1f, 1000.0f
+		);
+
+	//ビュー変換行列
+	XMMATRIX matView;
+	XMFLOAT3 eye(0, 0, -100);	//視点座標
+	XMFLOAT3 target(0, 0, 0);	//注視点座標
+	XMFLOAT3 up(0, 1, 0);		//上方向ベクトル
+	matView = XMMatrixLookAtLH(XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(& up));
+
+	//行列を合成
+	constMapTransform->mat =matView*matProjection;	//ビュー変換行列*射影変換行列
 
 	//値を書き込むと自動的に転送される
 	constMapMaterial->color = XMFLOAT4(0, 1, 1, 0.5f);//RGBAで半透明の赤(青)
@@ -471,7 +485,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	ID3DBlob* psBlob = nullptr;		//ピクセルシェーダーオブジェクト
 	ID3DBlob* errorBlob = nullptr;	//エラーオブジェクト
 
-	//画面クリアカラーの数値(自製)
+	//画面クリアカラーの数値0(自製)
 	FLOAT R, G, B, A;
 
 	//頂点シェーダーの読み込みとコンパイル
@@ -797,6 +811,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			B = 0.3f;
 			A = 0.0f;
 		}
+
+		if (key[DIK_D] || key[DIK_A])
+		{
+			if (key[DIK_D]) { angle += XMConvertToRadians(1.0f); }
+			else if (key[DIK_A]) { angle -= XMConvertToRadians(1.0f); }
+
+			//angleラジアンだけY軸まわりに回転。半径は-100
+			eye.x = -100 * sinf(angle);
+			eye.z = -100 * cosf(angle);
+			matView = XMMatrixLookAtLH(XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
+		}
+		//定数バッファにデータ転送
+		constMapTransform->mat = matView*matProjection;
 
 		//バックバッファの番号を取得(二つなので0番か1番)
 		UINT bbIndex = swapChain->GetCurrentBackBufferIndex();
