@@ -9,7 +9,7 @@
 #include <dinput.h>
 #include <DirectXTex.h>
 
-//05_04 p1
+//05_05 p8
 using namespace DirectX;
 
 #pragma comment(lib,"d3d12.lib")
@@ -17,6 +17,13 @@ using namespace DirectX;
 #pragma comment(lib,"d3dcompiler.lib")
 #pragma comment(lib,"dinput8.lib")
 #pragma comment(lib,"dxguid.lib")
+
+//スケーリング倍率
+XMFLOAT3 scale;
+//回転角
+XMFLOAT3 rotation;
+//座標
+XMFLOAT3 position;
 
 //定数バッファ用データ構造体(マテリアル)
 struct ConstBufferDataMaterial {
@@ -475,8 +482,34 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	XMFLOAT3 up(0, 1, 0);		//上方向ベクトル
 	matView = XMMatrixLookAtLH(XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(& up));
 
+	////ワールド変換行列
+	//XMMATRIX matWorld;
+	//matWorld = XMMatrixIdentity();	//単位行列
+
+	//XMMATRIX matScale;	//スケーリング行列
+	//matScale = XMMatrixScaling(1.0f, 0.5f, 1.0f);
+	//matWorld *= matScale;	//ワールド行列にスケーリングを反映
+
+	//XMMATRIX matRot;	//回転行列
+	//matRot = XMMatrixIdentity();
+	//matRot *= XMMatrixRotationZ(XMConvertToRadians(0.0f));	//Z軸まわりに45度回転
+	//matRot *= XMMatrixRotationZ(XMConvertToRadians(15.0f));	//Z軸まわりに45度回転
+	//matRot *= XMMatrixRotationZ(XMConvertToRadians(30.0f));	//Z軸まわりに45度回転
+	//matWorld *= matRot;	//ワールド行列に回転を反映
+
+	//XMMATRIX matTrans;	//平行移動行列
+	//matTrans = XMMatrixTranslation(-50.0f, 0, 0);	//(-50,0,0)平行移動
+	//matWorld *= matTrans;	//ワールド行列に平行移動を反映
+
+	//座標
+	XMFLOAT3 position = { 0.0f,0.0f,0.0f };
+
+	scale = { 1.0f,1.0f,1.0f };
+	rotation = { 0.0f,0.0f,0.0f };
+	position = { 0.0f ,0.0f ,0.0f };
+
 	//行列を合成
-	constMapTransform->mat =matView*matProjection;	//ビュー変換行列*射影変換行列
+	//constMapTransform->mat =matWorld*matView*matProjection;	//ワールド変換行列*ビュー変換行列*射影変換行列
 
 	//値を書き込むと自動的に転送される
 	constMapMaterial->color = XMFLOAT4(0, 1, 1, 0.5f);//RGBAで半透明の赤(青)
@@ -812,18 +845,49 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			A = 0.0f;
 		}
 
+
 		if (key[DIK_D] || key[DIK_A])
 		{
-			if (key[DIK_D]) { angle += XMConvertToRadians(1.0f); }
-			else if (key[DIK_A]) { angle -= XMConvertToRadians(1.0f); }
+			if (key[DIK_D]) { angle += 0.05f; }
+			else if (key[DIK_A]) { angle -= 0.05f; }
 
 			//angleラジアンだけY軸まわりに回転。半径は-100
 			eye.x = -100 * sinf(angle);
 			eye.z = -100 * cosf(angle);
 			matView = XMMatrixLookAtLH(XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
 		}
+		//いずれかのキーを押していたら
+		if (key[DIK_UP] || key[DIK_DOWN] || key[DIK_RIGHT] || key[DIK_LEFT])
+		{
+			//座標を移動する(Z座標)
+			if (key[DIK_UP]) { position.z += 1.0f; }
+			else if (key[DIK_DOWN]) { position.z -= 1.0f; }
+			if (key[DIK_RIGHT]) { position.x += 1.0f; }
+			else if (key[DIK_LEFT]) { position.x -= 1.0f; }
+		}
+
+		//ワールド変換行列
+		XMMATRIX matWorld;
+
+		XMMATRIX matScale;	//スケーリング行列
+		matScale = XMMatrixScaling(scale.x,scale.y,scale.z);
+
+		XMMATRIX matRot;	//回転行列
+		matRot = XMMatrixIdentity();
+		matRot *= XMMatrixRotationZ(rotation.x);	//Z軸まわりに45度回転
+		matRot *= XMMatrixRotationX(rotation.y);	//Z軸まわりに45度回転
+		matRot *= XMMatrixRotationY(rotation.z);	//Z軸まわりに45度回転
+
+		XMMATRIX matTrans;	//平行移動行列
+		matTrans = XMMatrixTranslation(position.x, position.y, position.z);
+		
+		matWorld = XMMatrixIdentity();	//単位行列
+		matWorld *= matScale;	//ワールド行列にスケーリングを反映
+		matWorld *= matRot;	//ワールド行列に回転を反映
+		matWorld *= matTrans;	//ワールド行列に平行移動を反映
+
 		//定数バッファにデータ転送
-		constMapTransform->mat = matView*matProjection;
+		constMapTransform->mat = matWorld*matView*matProjection;
 
 		//バックバッファの番号を取得(二つなので0番か1番)
 		UINT bbIndex = swapChain->GetCurrentBackBufferIndex();
