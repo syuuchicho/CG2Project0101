@@ -376,6 +376,30 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		nullptr,
 		IID_PPV_ARGS(&vertBuff));
 
+	//法線を計算
+	for (int i = 0; i < 24 / 3; i++)
+	{//三角形1つごと計算にしていく
+		//三角形のインデックスを取り出して、一時的な変数に入れる
+		unsigned short indices0 = indices[i * 3 + 0];
+		unsigned short indices1 = indices[i * 3 + 1];
+		unsigned short indices2 = indices[i * 3 + 2];
+		//三角形を構成する頂点座標をベクトルに代入
+		XMVECTOR p0 = XMLoadFloat3(&vertices[indices0].pos);
+		XMVECTOR p1 = XMLoadFloat3(&vertices[indices1].pos);
+		XMVECTOR p2 = XMLoadFloat3(&vertices[indices2].pos);
+		//p0->p1ベクトル,p0->p2ベクトルを計算(ベクトルの減算)
+		XMVECTOR v1 = XMVectorSubtract(p1, p0);
+		XMVECTOR v2 = XMVectorSubtract(p2, p0);
+		//外積は両方から垂直なベクトル
+		XMVECTOR normal = XMVector3Cross(v1, v2);
+		//正規化(長さを1にする)
+		normal = XMVector3Normalize(normal);
+		//求めた法線を頂点データに代入
+		XMStoreFloat3(&vertices[indices0].normal, normal);
+		XMStoreFloat3(&vertices[indices1].normal, normal);
+		XMStoreFloat3(&vertices[indices2].normal, normal);
+	}
+
 	//GPU上のバッファに対応した仮想メモリを取得
 	Vertex* vertMap = nullptr;
 	result = vertBuff->Map(0, nullptr, (void**)&vertMap);
@@ -523,7 +547,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	XMFLOAT3 eye(0, 0, -100);	//視点座標
 	XMFLOAT3 target(0, 0, 0);	//注視点座標
 	XMFLOAT3 up(0, 1, 0);		//上方向ベクトル
-	matView = XMMatrixLookAtLH(XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(& up));
+	matView = XMMatrixLookAtLH(XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
 
 	////ワールド変換行列
 	//XMMATRIX matWorld;
@@ -967,7 +991,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		XMMATRIX matWorld;
 
 		XMMATRIX matScale;	//スケーリング行列
-		matScale = XMMatrixScaling(scale.x,scale.y,scale.z);
+		matScale = XMMatrixScaling(scale.x, scale.y, scale.z);
 
 		XMMATRIX matRot;	//回転行列
 		matRot = XMMatrixIdentity();
@@ -977,14 +1001,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		XMMATRIX matTrans;	//平行移動行列
 		matTrans = XMMatrixTranslation(position.x, position.y, position.z);
-		
+
 		matWorld = XMMatrixIdentity();	//単位行列
 		matWorld *= matScale;	//ワールド行列にスケーリングを反映
 		matWorld *= matRot;	//ワールド行列に回転を反映
 		matWorld *= matTrans;	//ワールド行列に平行移動を反映
 
 		//定数バッファにデータ転送
-		constMapTransform->mat = matWorld*matView*matProjection;
+		constMapTransform->mat = matWorld * matView * matProjection;
 
 		//バックバッファの番号を取得(二つなので0番か1番)
 		UINT bbIndex = swapChain->GetCurrentBackBufferIndex();
